@@ -1,4 +1,4 @@
-﻿using Avalonia;
+using Avalonia;
 using MsBox.Avalonia;
 using Rockwall2.Editor.Common.Input;
 using Silk.NET.SDL;
@@ -17,6 +17,18 @@ internal sealed class Program
     [STAThread]
     public static void Main(string[] args)
     {
+        System.IO.Directory.SetCurrentDirectory(AppDomain.CurrentDomain.BaseDirectory);
+
+        AppDomain.CurrentDomain.AssemblyResolve += (sender, resolveArgs) =>
+        {
+            var requestedName = new System.Reflection.AssemblyName(resolveArgs.Name);
+            if (string.Equals(requestedName.Name, "MonoGame.Framework", StringComparison.OrdinalIgnoreCase))
+            {
+                return typeof(Microsoft.Xna.Framework.Game).Assembly;
+            }
+            return null;
+        };
+
         AppDomain.CurrentDomain.UnhandledException += CurrentDomainUnhandledException;
         TaskScheduler.UnobservedTaskException += TaskSchedulerUnhandledException;
 
@@ -27,6 +39,13 @@ internal sealed class Program
     }
     private static unsafe void NotifyOfUnhandledException(Exception ex)
     {
+        try
+        {
+            System.IO.File.WriteAllText("c:\\Chisel\\crash.log", ex.ToString());
+            System.IO.File.WriteAllText(System.IO.Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "crash.log"), ex.ToString());
+            Console.Error.WriteLine(ex.ToString());
+        }
+        catch { }
         if (!Debugger.IsAttached)
         {
             var sdl = Sdl.GetApi();

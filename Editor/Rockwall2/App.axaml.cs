@@ -25,18 +25,46 @@ public partial class App : Application
         {
             DisableAvaloniaDataAnnotationValidation();
 
-            var setup = new StartWindow();
-            desktop.MainWindow = setup;
-            setup.Show();
-
-            var tcs = new TaskCompletionSource<bool>();
-            setup.Closed += (_, _) => tcs.TrySetResult(setup.Result == true);
-            var success = await tcs.Task;
-
-            if (!success)
+            bool openDirectly = false;
+            if (desktop.Args != null && desktop.Args.Length > 0)
             {
-                desktop.Shutdown();
-                return;
+                string arg = desktop.Args[0];
+                if (System.IO.File.Exists(arg))
+                {
+                    ConfigManager.LoadConfig(arg);
+                    openDirectly = true;
+                }
+                else
+                {
+                    ConfigManager.LoadAllConfigs();
+                    if (ConfigManager.configFiles != null)
+                    {
+                        var matching = ConfigManager.configFiles.FirstOrDefault(c =>
+                            System.IO.Path.GetFileNameWithoutExtension(c).Equals(arg, System.StringComparison.OrdinalIgnoreCase));
+                        if (matching != null)
+                        {
+                            ConfigManager.LoadConfig(matching);
+                            openDirectly = true;
+                        }
+                    }
+                }
+            }
+
+            if (!openDirectly)
+            {
+                var setup = new StartWindow();
+                desktop.MainWindow = setup;
+                setup.Show();
+
+                var tcs = new TaskCompletionSource<bool>();
+                setup.Closed += (_, _) => tcs.TrySetResult(setup.Result == true);
+                var success = await tcs.Task;
+
+                if (!success)
+                {
+                    desktop.Shutdown();
+                    return;
+                }
             }
 
             var main = new MainWindow();

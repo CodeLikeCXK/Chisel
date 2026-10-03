@@ -1,6 +1,5 @@
-﻿using Microsoft.Xna.Framework;
+using Microsoft.Xna.Framework;
 using Microsoft.Xna.Framework.Graphics;
-using Silk.NET.Windowing;
 using System.Collections.Generic;
 namespace MapCompiler;
 public class HeadlessTextureHost : Game

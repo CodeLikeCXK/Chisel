@@ -1,4 +1,4 @@
-﻿using Avalonia.Controls;
+using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Styling;
 using Avalonia.Threading;
@@ -229,7 +229,15 @@ public class MapperView : IEditorScene
         spriteRasterizer = new RasterizerState { CullMode = CullMode.None };
 
         FontSystem = new FontSystem();
-        FontSystem.AddFont(File.ReadAllBytes(@$"{host.Content.RootDirectory}/default.ttf"));
+        string fontPath = @$"{host.Content.RootDirectory}/default.ttf";
+        if (!File.Exists(fontPath))
+        {
+            if (File.Exists(@$"{host.Content.RootDirectory}/F25_Bank_Printer.ttf"))
+                fontPath = @$"{host.Content.RootDirectory}/F25_Bank_Printer.ttf";
+            else if (File.Exists("Assets/Font/default.ttf"))
+                fontPath = "Assets/Font/default.ttf";
+        }
+        FontSystem.AddFont(File.ReadAllBytes(fontPath));
 
         GizmoTranslate.Mode = GizmoTranslate.GizmoMode.Translate;
         GizmoTranslate.GenerateGeometry();

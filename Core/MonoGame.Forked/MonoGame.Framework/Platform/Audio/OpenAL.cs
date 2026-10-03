@@ -1,4 +1,4 @@
-﻿// MonoGame - Copyright (C) MonoGame Foundation, Inc
+// MonoGame - Copyright (C) MonoGame Foundation, Inc
 // This file is subject to the terms and conditions defined in
 // file 'LICENSE.txt', which is part of this source code package.
 
@@ -194,6 +194,32 @@ namespace MonoGame.OpenAL
     {
 #if !IOS
         internal const string LibraryName = "openal";
+
+        static AL()
+        {
+            try
+            {
+                NativeLibrary.SetDllImportResolver(typeof(AL).Assembly, ResolveDllImport);
+            }
+            catch
+            {
+                // In case a resolver was already configured
+            }
+        }
+
+        private static IntPtr ResolveDllImport(string libraryName, System.Reflection.Assembly assembly, DllImportSearchPath? searchPath)
+        {
+            if (libraryName == "openal")
+            {
+                if (NativeLibrary.TryLoad("openal", assembly, searchPath, out var handle))
+                    return handle;
+                if (NativeLibrary.TryLoad("soft_oal", assembly, searchPath, out handle))
+                    return handle;
+                if (NativeLibrary.TryLoad("openal32", assembly, searchPath, out handle))
+                    return handle;
+            }
+            return IntPtr.Zero;
+        }
 #else
         internal const string LibraryName = "__Internal";
 #endif

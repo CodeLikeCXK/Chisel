@@ -1,7 +1,6 @@
 using Microsoft.Xna.Framework;
 using Newtonsoft.Json;
 using Rockwall;
-using SimpleImageIO;
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -247,5 +246,157 @@ namespace MapCompiler
 
         // Additive blend, normalized to [0,1]
         public static float Mix(float a, float b) => (a + b) / 255f;
+    }
+
+    public readonly struct RgbColor
+    {
+        public readonly float R, G, B;
+        public RgbColor(float r, float g, float b) { R = r; G = g; B = b; }
+    }
+
+    public sealed class RgbImage : IDisposable
+    {
+        public int Width { get; }
+        public int Height { get; }
+        private readonly float[] data;
+
+        public RgbImage(int width, int height)
+        {
+            Width = width;
+            Height = height;
+            data = new float[width * height * 3];
+        }
+
+        public void SetPixel(int x, int y, RgbColor color)
+        {
+            int idx = (y * Width + x) * 3;
+            data[idx + 0] = color.R;
+            data[idx + 1] = color.G;
+            data[idx + 2] = color.B;
+        }
+
+        public RgbColor GetPixel(int x, int y)
+        {
+            int idx = (y * Width + x) * 3;
+            return new RgbColor(data[idx], data[idx + 1], data[idx + 2]);
+        }
+
+        public float GetPixelChannel(int x, int y, int channel)
+        {
+            return data[(y * Width + x) * 3 + channel];
+        }
+
+        public RgbImage ApplyOpInPlace(Func<float, float> op)
+        {
+            for (int i = 0; i < data.Length; i++)
+                data[i] = op(data[i]);
+            return this;
+        }
+
+        public byte[] WriteToMemory(string extension)
+        {
+            using var ms = new MemoryStream();
+            using var writer = new BinaryWriter(ms);
+
+            string header = $"#?RADIANCE\nFORMAT=32-bit_rle_rgbe\n\n-Y {Height} +X {Width}\n";
+            writer.Write(Encoding.ASCII.GetBytes(header));
+
+            byte[] scanlineR = new byte[Width];
+            byte[] scanlineG = new byte[Width];
+            byte[] scanlineB = new byte[Width];
+            byte[] scanlineE = new byte[Width];
+
+            for (int y = 0; y < Height; y++)
+            {
+                int rowOffset = y * Width * 3;
+                for (int x = 0; x < Width; x++)
+                {
+                    int idx = rowOffset + x * 3;
+                    FloatToRgbe(data[idx], data[idx + 1], data[idx + 2],
+                        out scanlineR[x], out scanlineG[x], out scanlineB[x], out scanlineE[x]);
+                }
+
+                if (Width >= 8 && Width <= 0x7fff)
+                {
+                    writer.Write((byte)2);
+                    writer.Write((byte)2);
+                    writer.Write((byte)(Width >> 8));
+                    writer.Write((byte)(Width & 0xFF));
+
+                    WriteChannelRle(writer, scanlineR);
+                    WriteChannelRle(writer, scanlineG);
+                    WriteChannelRle(writer, scanlineB);
+                    WriteChannelRle(writer, scanlineE);
+                }
+                else
+                {
+                    for (int x = 0; x < Width; x++)
+                    {
+                        writer.Write(scanlineR[x]);
+                        writer.Write(scanlineG[x]);
+                        writer.Write(scanlineB[x]);
+                        writer.Write(scanlineE[x]);
+                    }
+                }
+            }
+
+            return ms.ToArray();
+        }
+
+        private static void WriteChannelRle(BinaryWriter writer, byte[] data)
+        {
+            int i = 0;
+            while (i < data.Length)
+            {
+                int runLen = 1;
+                while (i + runLen < data.Length && runLen < 127 && data[i + runLen] == data[i])
+                {
+                    runLen++;
+                }
+
+                if (runLen >= 2)
+                {
+                    writer.Write((byte)(runLen + 128));
+                    writer.Write(data[i]);
+                    i += runLen;
+                }
+                else
+                {
+                    int nonRunLen = 1;
+                    while (i + nonRunLen < data.Length && nonRunLen < 128)
+                    {
+                        if (i + nonRunLen + 2 < data.Length &&
+                            data[i + nonRunLen] == data[i + nonRunLen + 1] &&
+                            data[i + nonRunLen] == data[i + nonRunLen + 2])
+                        {
+                            break;
+                        }
+                        nonRunLen++;
+                    }
+
+                    writer.Write((byte)nonRunLen);
+                    writer.Write(data, i, nonRunLen);
+                    i += nonRunLen;
+                }
+            }
+        }
+
+        private static void FloatToRgbe(float r, float g, float b, out byte re, out byte ge, out byte be, out byte e)
+        {
+            float maxVal = MathF.Max(r, MathF.Max(g, b));
+            if (maxVal < 1e-32f)
+            {
+                re = ge = be = e = 0;
+                return;
+            }
+            int exp = (int)MathF.Floor(MathF.Log2(maxVal)) + 1;
+            float scale = MathF.Pow(2f, 8 - exp);
+            re = (byte)Math.Clamp((int)(r * scale), 0, 255);
+            ge = (byte)Math.Clamp((int)(g * scale), 0, 255);
+            be = (byte)Math.Clamp((int)(b * scale), 0, 255);
+            e = (byte)Math.Clamp(exp + 128, 0, 255);
+        }
+
+        public void Dispose() { }
     }
 }

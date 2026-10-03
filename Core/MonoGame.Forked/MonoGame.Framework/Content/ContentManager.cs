@@ -71,6 +71,7 @@ namespace Microsoft.Xna.Framework.Content
         };
 
         private static readonly string[] supportedTexture2DExtensions = new string[] { ".png", ".jpg", ".jpeg", ".bmp" };
+        private static readonly string[] supportedEffectExtensions = new string[] { ".ogl.mgfxo", ".mgfxo", ".dx11.mgfxo" };
 
         static partial void PlatformStaticInit();
 
@@ -470,7 +471,19 @@ namespace Microsoft.Xna.Framework.Content
                             throw new ContentLoadException("Could not load image file of " + originalAssetName + " asset!", e);
                         }
                     }
-                    // no alternaive file, rethrow original error as-is
+                    else if (typeof(Effect).IsAssignableFrom(typeof(T)) &&
+                             EffectFileExists(assetName))
+                    {
+                        try
+                        {
+                            result = LoadEffectFromFile(assetName);
+                        }
+                        catch (Exception e)
+                        {
+                            throw new ContentLoadException("Could not load effect file of " + originalAssetName + " asset!", e);
+                        }
+                    }
+                    // no alternative file, rethrow original error as-is
                     else
                         throw;
                 }
@@ -550,6 +563,15 @@ namespace Microsoft.Xna.Framework.Content
 
                 if (File.Exists(assetPath))
                     return true;
+
+#if DESKTOPGL || WINDOWS
+                if (!Path.IsPathRooted(assetPath))
+                {
+                    string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+                    if (File.Exists(Path.Combine(baseDir, assetPath)))
+                        return true;
+                }
+#endif
             }
 
             return false;
@@ -569,10 +591,24 @@ namespace Microsoft.Xna.Framework.Content
                 // Handle absolute paths the same way as XNB loading
 #if DESKTOPGL || WINDOWS
                 if (Path.IsPathRooted(assetPath))
-                    stream = File.OpenRead(assetPath);
+                {
+                    if (File.Exists(assetPath))
+                        stream = File.OpenRead(assetPath);
+                }
                 else
+                {
+                    if (File.Exists(assetPath))
+                        stream = File.OpenRead(assetPath);
+                    else
+                    {
+                        string full = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, assetPath);
+                        if (File.Exists(full))
+                            stream = File.OpenRead(full);
+                    }
+                }
 #endif
-                stream = TitleContainer.OpenStreamNoException(assetPath);
+                if (stream == null)
+                    stream = TitleContainer.OpenStreamNoException(assetPath);
 #if ANDROID
                 // Read the asset into memory in one go. This results in a ~50% reduction
                 // in load times on Android due to slow Android asset streams.
@@ -589,6 +625,100 @@ namespace Microsoft.Xna.Framework.Content
                     {
                         Texture2D result = Texture2D.FromStream(graphicsDeviceService.GraphicsDevice, stream, DefaultColorProcessors.PremultiplyAlpha);
                         return result;
+                    }
+                }
+            }
+
+            return null;
+        }
+
+        internal bool EffectFileExists(string assetName)
+        {
+            foreach (string extension in supportedEffectExtensions)
+            {
+                string assetPath = Path.Combine(RootDirectory, assetName);
+                string[] candidates = new string[]
+                {
+                    assetPath + extension,
+                    Path.ChangeExtension(assetPath, extension)
+                };
+
+                foreach (string candidate in candidates)
+                {
+                    if (File.Exists(candidate))
+                        return true;
+
+#if DESKTOPGL || WINDOWS
+                    if (!Path.IsPathRooted(candidate))
+                    {
+                        string baseDir = AppDomain.CurrentDomain.BaseDirectory;
+                        if (File.Exists(Path.Combine(baseDir, candidate)))
+                            return true;
+                    }
+#endif
+                }
+            }
+
+            return false;
+        }
+
+        internal Effect LoadEffectFromFile(string assetName)
+        {
+            IGraphicsDeviceService graphicsDeviceService = serviceProvider.GetService(typeof(IGraphicsDeviceService)) as IGraphicsDeviceService;
+            if (graphicsDeviceService == null || graphicsDeviceService.GraphicsDevice == null)
+                return null;
+
+            foreach (string extension in supportedEffectExtensions)
+            {
+                string assetPath = Path.Combine(RootDirectory, assetName);
+                string[] candidates = new string[]
+                {
+                    assetPath + extension,
+                    Path.ChangeExtension(assetPath, extension)
+                };
+
+                foreach (string candidate in candidates)
+                {
+                    Stream stream = null;
+
+#if DESKTOPGL || WINDOWS
+                    if (Path.IsPathRooted(candidate))
+                    {
+                        if (File.Exists(candidate))
+                            stream = File.OpenRead(candidate);
+                    }
+                    else
+                    {
+                        if (File.Exists(candidate))
+                            stream = File.OpenRead(candidate);
+                        else
+                        {
+                            string full = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, candidate);
+                            if (File.Exists(full))
+                                stream = File.OpenRead(full);
+                        }
+                    }
+#endif
+                    if (stream == null)
+                        stream = TitleContainer.OpenStreamNoException(candidate);
+
+                    if (stream != null)
+                    {
+                        using (stream)
+                        {
+                            byte[] effectCode = new byte[stream.Length];
+                            int totalRead = 0;
+                            while (totalRead < effectCode.Length)
+                            {
+                                int read = stream.Read(effectCode, totalRead, effectCode.Length - totalRead);
+                                if (read <= 0) break;
+                                totalRead += read;
+                            }
+                            var effect = new Effect(graphicsDeviceService.GraphicsDevice, effectCode);
+                            effect.Name = assetName;
+                            RecordDisposable(effect);
+                            return effect;
+                        }
                     }
                 }
             }

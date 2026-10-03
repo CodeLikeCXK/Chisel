@@ -1,10 +1,9 @@
-﻿using MapCompiler;
+using MapCompiler;
 using MapCompiler.Compilation;
 using MapCompiler.Compilation.GPU;
 using MapCompiler.Compilation.GPU.Resources;
 using Microsoft.Xna.Framework;
 using Rockwall;
-using Silk.NET.OpenAL;
 using Silk.NET.OpenGL;
 using System;
 using System.Collections.Generic;

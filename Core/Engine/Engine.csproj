@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <OutputType>Library</OutputType>
     <TargetFramework>net8.0</TargetFramework>
@@ -70,14 +70,12 @@
   </Target>
   <Import Project="..\..\Shared\ChiselSharedTypes\ChiselSharedTypes.projitems" Label="Shared" />
   <Import Project="..\..\Shared\ChiselModelTypes\ChiselModelTypes.projitems" Label="Shared" />
-    <ItemGroup>
+    <ItemGroup Condition="'$(RuntimeIdentifier)' != 'win-arm64'">
 	    <None Include="joltc.dll" Link="runtimes\win-x64\native\joltc.dll" CopyToOutputDirectory="PreserveNewest" Visible="false" />
     </ItemGroup>
-	<ItemGroup>
-		<None Include="joltc.dll" Link="runtimes\win-arm64\native\joltc.dll" CopyToOutputDirectory="PreserveNewest" Visible="false" />
-	</ItemGroup>
-	<ItemGroup>
-		<None Include="joltc.dll" Link="runtimes\test_copy\native\joltc.dll" CopyToOutputDirectory="PreserveNewest" Visible="false" />
+	<ItemGroup Condition="'$(RuntimeIdentifier)' != 'win-x64'">
+		<None Include="joltc_arm64.dll" Link="runtimes\win-arm64\native\joltc.dll" CopyToOutputDirectory="PreserveNewest" Visible="false" />
+		<None Include="openal_arm64.dll" Link="runtimes\win-arm64\native\openal.dll" CopyToOutputDirectory="PreserveNewest" Visible="false" />
 	</ItemGroup>
 
 	<!-- Don't worry about this below, it's just for me; it auto increments the build number on my machine. -->

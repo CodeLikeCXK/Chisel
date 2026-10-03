@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
@@ -11,7 +11,9 @@
     <CopyContentFiles>True</CopyContentFiles>
     <IsAotCompatible>true</IsAotCompatible>
     <PackageReadmeFile>README-packages.md</PackageReadmeFile>
-	<Version>3.8.2.1105</Version>
+	<Version>3.8.4.1</Version>
+	<AssemblyVersion>3.8.4.1</AssemblyVersion>
+	<FileVersion>3.8.4.1</FileVersion>
 	<Authors>Elgen</Authors>
 	<GeneratePackageOnBuild>false</GeneratePackageOnBuild>
   </PropertyGroup>
